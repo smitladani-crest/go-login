@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,15 +14,16 @@ import (
 
 var cookieHandler = securecookie.New(securecookie.GenerateRandomKey(64), securecookie.GenerateRandomKey(32))
 var ipAddress string
+var color *string
 
 const indexPage = `
-<h1>Login</h1>
-<h4>Served from %s<h4>
+<h1 style="color: %s">Login</h1>
+<h4>Served from %s</h4>
 <form method="post" action="/login">
 	<label for="name">User name</label>
-	<input type="text" id="name" name="name">
+	<input type="text" id="name" name="name"/>
 	<label for="password">Password</label>
-	<input type="password" id="password" name="password">
+	<input type="password" id="password" name="password"/>
 	<button type="submit">Login</button>
 </form>`
 
@@ -32,14 +34,14 @@ func indexPageHandler(response http.ResponseWriter, request *http.Request) {
 	if userName != "" {
 		http.Redirect(response, request, "/internal", http.StatusFound)
 	} else {
-		fmt.Fprintf(response, indexPage, ipAddress)
+		fmt.Fprintf(response, indexPage, *color, ipAddress)
 	}
 }
 
 const internalPage = `
-<h1>Internal</h1>
-<h4>Served from %s<h4>
-<hr>
+<h1 style="color: %s">Internal</h1>
+<h4>Served from %s</h4>
+<hr/>
 <small>User: %s</small>
 <form method="post" action="/logout">
 	<button type="submit">Logout</button>
@@ -50,7 +52,7 @@ func internalPageHandler(response http.ResponseWriter, request *http.Request) {
 
 	userName := getUserName(request)
 	if userName != "" {
-		fmt.Fprintf(response, internalPage, ipAddress, userName)
+		fmt.Fprintf(response, internalPage, *color, ipAddress, userName)
 	} else {
 		http.Redirect(response, request, "/", http.StatusFound)
 	}
@@ -151,6 +153,10 @@ func getIPAddress() (string, error) {
 }
 
 func main() {
+
+	color = flag.String("color", "black", "Provide the color for header")
+	flag.Parse()
+
 	var err error
 
 	ipAddress, err = getIPAddress()
@@ -163,6 +169,12 @@ func main() {
 
 	router.HandleFunc("/login", loginHandler).Methods("POST")
 	router.HandleFunc("/logout", logoutHandler).Methods("POST")
+
+	router.HandleFunc("/health", func(response http.ResponseWriter, request *http.Request) {
+		log.Printf("%s %s %s\n", request.RemoteAddr, request.Method, request.RequestURI)
+
+		fmt.Fprintf(response, "healthy")
+	})
 
 	http.Handle("/", router)
 

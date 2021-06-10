@@ -173,7 +173,15 @@ func getIPAddress() (string, error) {
 func main() {
 
 	color = flag.String("color", "black", "Provide the color for header")
+	port := flag.String("p", "8080", "Port number for Server to listen")
+	sslFlag := flag.Bool("ssl", false, "Flag to enable the ssl on the server")
+	certFile := flag.String("certfile", "", "Cert file path for SSL connection")
+	privateKey := flag.String("privatekey", "", "Private Key file path for SSL connection")
 	flag.Parse()
+
+	if *sslFlag && (*certFile == "" || *privateKey == "") {
+		log.Fatal("Need to provide the CertFile and PrivateKey file.")
+	}
 
 	var err error
 
@@ -196,6 +204,15 @@ func main() {
 
 	http.Handle("/", router)
 
-	log.Println("Server is listening at 0.0.0.0:8080")
-	http.ListenAndServe("0.0.0.0:8080", nil)
+	log.Println("Server is listening at 0.0.0.0:" + *port)
+
+	if *sslFlag {
+		err = http.ListenAndServeTLS("0.0.0.0:"+*port, *certFile, *privateKey, nil)
+	} else {
+		err = http.ListenAndServe("0.0.0.0:"+*port, nil)
+	}
+
+	if err != nil {
+		log.Fatal("Error from Server: ", err)
+	}
 }

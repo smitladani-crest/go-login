@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
@@ -16,9 +17,22 @@ var cookieHandler = securecookie.New(securecookie.GenerateRandomKey(64), securec
 var ipAddress string
 var color *string
 
+func extractHeaderInformation(request *http.Request) string {
+	var headerString string
+
+	for name, value := range request.Header {
+		headerString += name + ": " + strings.Join(value, ", ") + "<br/>"
+	}
+
+	return headerString
+}
+
 const indexPage = `
 <h1 style="color: %s">Login</h1>
-<h4>Served from %s</h4>
+<h2>Your IP - %s</h2>
+<p><b>Request Header</b> - %s</p>
+<h3>Served from %s</h3>
+<hr/>
 <form method="post" action="/login">
 	<label for="name">User name</label>
 	<input type="text" id="name" name="name"/>
@@ -34,13 +48,16 @@ func indexPageHandler(response http.ResponseWriter, request *http.Request) {
 	if userName != "" {
 		http.Redirect(response, request, "/internal", http.StatusFound)
 	} else {
-		fmt.Fprintf(response, indexPage, *color, ipAddress)
+		headerInfo := extractHeaderInformation(request)
+		fmt.Fprintf(response, indexPage, *color, request.RemoteAddr, headerInfo, ipAddress)
 	}
 }
 
 const internalPage = `
 <h1 style="color: %s">Internal</h1>
-<h4>Served from %s</h4>
+<h2>Your IP - %s</h2>
+<p><b>Request Header</b> - %s</p>
+<h3>Served from %s</h3>
 <hr/>
 <small>User: %s</small>
 <form method="post" action="/logout">
@@ -52,7 +69,8 @@ func internalPageHandler(response http.ResponseWriter, request *http.Request) {
 
 	userName := getUserName(request)
 	if userName != "" {
-		fmt.Fprintf(response, internalPage, *color, ipAddress, userName)
+		headerInfo := extractHeaderInformation(request)
+		fmt.Fprintf(response, internalPage, *color, request.RemoteAddr, headerInfo, ipAddress, userName)
 	} else {
 		http.Redirect(response, request, "/", http.StatusFound)
 	}
